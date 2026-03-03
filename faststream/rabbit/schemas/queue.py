@@ -38,14 +38,13 @@ class RabbitQueue(NameRequired):
         "exclusive",
         "name",
         "path_regex",
-        "robust",
         "routing_key",
         "timeout",
     )
 
     def __repr__(self) -> str:
         if self.declare:
-            body = f", robust={self.robust}, durable={self.durable}, exclusive={self.exclusive}, auto_delete={self.auto_delete})"
+            body = f", durable={self.durable}, exclusive={self.exclusive}, auto_delete={self.auto_delete})"
         else:
             body = ""
 
@@ -54,14 +53,27 @@ class RabbitQueue(NameRequired):
 
         return f"{self.__class__.__name__}({self.name}{body})"
 
+    def __eq__(self, value: object, /) -> bool:
+        if not isinstance(value, RabbitQueue):
+            return NotImplemented
+
+        return (
+            self.name == value.name
+            and self.durable == value.durable
+            and self.exclusive == value.exclusive
+            and self.auto_delete == value.auto_delete
+            and self.arguments == value.arguments
+        )
+
     def __hash__(self) -> int:
         """Supports hash to store real objects in declarer."""
-        return sum(
+        return hash(
             (
-                hash(self.name),
-                int(self.durable),
-                int(self.exclusive),
-                int(self.auto_delete),
+                self.name,
+                self.durable,
+                self.exclusive,
+                self.auto_delete,
+                frozenset((self.arguments or {}).items()),
             ),
         )
 
@@ -90,7 +102,6 @@ class RabbitQueue(NameRequired):
         auto_delete: bool = False,
         arguments: Optional["ClassicQueueArgs"] = None,
         timeout: "TimeoutType" = None,
-        robust: bool = True,
         bind_arguments: dict[str, Any] | None = None,
         routing_key: str = "",
     ) -> None: ...
@@ -106,7 +117,6 @@ class RabbitQueue(NameRequired):
         auto_delete: bool = False,
         arguments: Optional["QuorumQueueArgs"] = None,
         timeout: "TimeoutType" = None,
-        robust: bool = True,
         bind_arguments: dict[str, Any] | None = None,
         routing_key: str = "",
     ) -> None: ...
@@ -122,7 +132,6 @@ class RabbitQueue(NameRequired):
         auto_delete: bool = False,
         arguments: Optional["StreamQueueArgs"] = None,
         timeout: "TimeoutType" = None,
-        robust: bool = True,
         bind_arguments: dict[str, Any] | None = None,
         routing_key: str = "",
     ) -> None: ...
@@ -143,7 +152,6 @@ class RabbitQueue(NameRequired):
             None,
         ] = None,
         timeout: "TimeoutType" = None,
-        robust: bool = True,
         bind_arguments: dict[str, Any] | None = None,
         routing_key: str = "",
     ) -> None:
@@ -160,7 +168,6 @@ class RabbitQueue(NameRequired):
                           You can find information about them in the official RabbitMQ documentation:
                           https://www.rabbitmq.com/docs/queues#optional-arguments
         :param timeout: Send confirmation time from RabbitMQ.
-        :param robust: Whether to declare queue object as restorable.
         :param bind_arguments: Queue-exchange binding options.
         :param routing_key: Explicit binding routing key. Uses name if not present.
         """
@@ -186,7 +193,6 @@ class RabbitQueue(NameRequired):
         self.exclusive = exclusive
         self.bind_arguments = bind_arguments
         self.routing_key = routing_key
-        self.robust = robust
         self.auto_delete = auto_delete
         self.arguments = {"x-queue-type": queue_type.value, **(arguments or {})}
         self.timeout = timeout

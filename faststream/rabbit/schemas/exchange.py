@@ -20,7 +20,6 @@ class RabbitExchange(NameRequired):
         "bind_to",
         "durable",
         "name",
-        "robust",
         "routing_key",
         "timeout",
         "type",
@@ -28,21 +27,35 @@ class RabbitExchange(NameRequired):
 
     def __repr__(self) -> str:
         if self.declare:
-            body = f", robust={self.robust}, durable={self.durable}, auto_delete={self.auto_delete})"
+            body = f", durable={self.durable}, auto_delete={self.auto_delete})"
         else:
             body = ""
 
         return f"{self.__class__.__name__}({self.name}, type={self.type}, routing_key='{self.routing()}'{body})"
 
+    def __eq__(self, value: object, /) -> bool:
+        if not isinstance(value, RabbitExchange):
+            return NotImplemented
+
+        return (
+            self.name == value.name
+            and self.type == value.type
+            and self.routing_key == value.routing_key
+            and self.durable == value.durable
+            and self.auto_delete == value.auto_delete
+            and self.arguments == value.arguments
+        )
+
     def __hash__(self) -> int:
         """Supports hash to store real objects in declarer."""
-        return sum(
+        return hash(
             (
-                hash(self.name),
-                hash(self.type),
-                hash(self.routing_key),
-                int(self.durable),
-                int(self.auto_delete),
+                self.name,
+                self.type,
+                self.routing_key,
+                self.durable,
+                self.auto_delete,
+                frozenset((self.arguments or {}).items()),
             ),
         )
 
@@ -60,7 +73,6 @@ class RabbitExchange(NameRequired):
         declare: bool = True,
         arguments: dict[str, Any] | None = None,
         timeout: "TimeoutType" = None,
-        robust: bool = True,
         bind_to: Optional["RabbitExchange"] = None,
         bind_arguments: dict[str, Any] | None = None,
         routing_key: str = "",
@@ -75,7 +87,6 @@ class RabbitExchange(NameRequired):
             declare: Whether to exchange automatically or just connect to it.
             arguments: Exchange declarationg arguments.
             timeout: Send confirmation time from RabbitMQ.
-            robust: Whether to declare exchange object as restorable.
             bind_to: Another `RabbitExchange` object to bind the current one to.
             bind_arguments: Exchange-exchange binding options.
             routing_key: Explicit binding routing key.
@@ -95,7 +106,6 @@ class RabbitExchange(NameRequired):
         self.type = type
         self.durable = durable
         self.auto_delete = auto_delete
-        self.robust = robust
         self.timeout = timeout
         self.arguments = arguments
         self.declare = declare
